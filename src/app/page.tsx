@@ -1,101 +1,192 @@
-import Image from "next/image";
+import React, { useState, useEffect, useRef, DragEvent } from 'react';
+import type { NextPage } from 'next';
 
-export default function Home() {
+interface Furniture {
+  id: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  color: string;
+}
+
+// Generate random furniture pieces with random position, size, and color
+function generateRandomFurniture(
+  numPieces: number,
+  containerWidth: number,
+  containerHeight: number
+): Furniture[] {
+  const furnitureArray: Furniture[] = [];
+  for (let i = 0; i < numPieces; i++) {
+    const width = 50 + Math.floor(Math.random() * 50); // 50-100px
+    const height = 50 + Math.floor(Math.random() * 50); // 50-100px
+    const color = `hsl(${Math.random() * 360}, 50%, 50%)`; // random color in HSL
+    const x = Math.random() * (containerWidth - width);
+    const y = Math.random() * (containerHeight - height);
+
+    furnitureArray.push({
+      id: i,
+      x,
+      y,
+      width,
+      height,
+      color,
+    });
+  }
+  return furnitureArray;
+}
+
+// A simple function to compute "feng shui" based on how close pieces are to the center
+function calculateFengShui(
+  furniture: Furniture[],
+  containerWidth: number,
+  containerHeight: number
+): number {
+  if (furniture.length === 0) return 50; // default
+
+  const centerX = containerWidth / 2;
+  const centerY = containerHeight / 2;
+
+  // Distances of each piece's center from the container center
+  const distances = furniture.map(({ x, y, width, height }) => {
+    const pieceCenterX = x + width / 2;
+    const pieceCenterY = y + height / 2;
+    const dx = pieceCenterX - centerX;
+    const dy = pieceCenterY - centerY;
+    return Math.sqrt(dx * dx + dy * dy);
+  });
+
+  // Average distance
+  const avgDistance =
+    distances.reduce((sum, d) => sum + d, 0) / distances.length;
+
+  // Some arbitrary scaling to produce a 0–100 range
+  const maxDistance = Math.sqrt(centerX ** 2 + centerY ** 2);
+  let score = 100 - (avgDistance / maxDistance) * 100;
+  score = Math.max(0, Math.min(100, score));
+  return Math.round(score);
+}
+
+const Home: NextPage = () => {
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const [furniture, setFurniture] = useState<Furniture[]>([]);
+  const [fengShuiScore, setFengShuiScore] = useState<number>(50);
+
+  // We use these to track which piece is being dragged and its offset from the mouse
+  const [draggingId, setDraggingId] = useState<number | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({
+    x: 0,
+    y: 0,
+  });
+
+  useEffect(() => {
+    if (containerRef.current) {
+      const { clientWidth, clientHeight } = containerRef.current;
+      const initialFurniture = generateRandomFurniture(
+        5,
+        clientWidth,
+        clientHeight
+      );
+      setFurniture(initialFurniture);
+      setFengShuiScore(
+        calculateFengShui(initialFurniture, clientWidth, clientHeight)
+      );
+    }
+  }, []);
+
+  // When a piece starts dragging, record which piece and the offset within that piece
+  const handleDragStart = (
+    e: React.DragEvent<HTMLDivElement>,
+    item: Furniture
+  ) => {
+    setDraggingId(item.id);
+
+    // Calculate offset between mouse and the top-left of the furniture
+    // so that when we drop, we can properly position it
+    const rect = (e.target as HTMLDivElement).getBoundingClientRect();
+    const offsetX = e.clientX - rect.left;
+    const offsetY = e.clientY - rect.top;
+    setDragOffset({ x: offsetX, y: offsetY });
+  };
+
+  // We must prevent default to allow onDrop to fire
+  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+  };
+
+  // When we drop the piece, compute new position
+  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (draggingId === null || !containerRef.current) return;
+
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const dropX = e.clientX - containerRect.left - dragOffset.x;
+    const dropY = e.clientY - containerRect.top - dragOffset.y;
+
+    // Constrain the piece to stay within container
+    const { clientWidth, clientHeight } = containerRef.current;
+    const piece = furniture.find((f) => f.id === draggingId);
+    if (!piece) return;
+
+    const newX = Math.max(0, Math.min(dropX, clientWidth - piece.width));
+    const newY = Math.max(0, Math.min(dropY, clientHeight - piece.height));
+
+    // Update the piece in the furniture array
+    const updatedFurniture = furniture.map((f) => {
+      if (f.id === draggingId) {
+        return { ...f, x: newX, y: newY };
+      }
+      return f;
+    });
+
+    setFurniture(updatedFurniture);
+    setDraggingId(null);
+
+    // Recalculate feng shui after the drop
+    const newScore = calculateFengShui(updatedFurniture, clientWidth, clientHeight);
+    setFengShuiScore(newScore);
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+    <div className="flex h-screen w-screen">
+      {/* Main container (draggable area) */}
+      <div
+        ref={containerRef}
+        className="relative flex-1 border-2 border-gray-300"
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+      >
+        {furniture.map((item) => (
+          <div
+            key={item.id}
+            className="absolute cursor-move"
+            style={{
+              width: item.width,
+              height: item.height,
+              left: item.x,
+              top: item.y,
+              backgroundColor: item.color,
+            }}
+            draggable
+            onDragStart={(e) => handleDragStart(e, item)}
+          />
+        ))}
+      </div>
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+      {/* Feng Shui Meter */}
+      <div className="w-40 border-l-2 border-gray-300 flex flex-col items-center justify-center">
+        <h2 className="text-lg font-semibold my-4">Feng Shui Meter</h2>
+        <div className="relative h-64 w-10 border border-gray-400 rounded bg-gray-100">
+          <div
+            className="absolute bottom-0 left-0 w-full bg-green-500 transition-all duration-300"
+            style={{ height: `${fengShuiScore}%` }}
+          />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        <p className="mt-4 text-lg font-bold">{fengShuiScore} / 100</p>
+      </div>
     </div>
   );
-}
+};
+
+export default Home;
