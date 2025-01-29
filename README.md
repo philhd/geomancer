@@ -1,10 +1,10 @@
 # geomancer
-A web-based game to test the coding abilities of o1 vs deepseek r1 with the same prompt
+A web-based game to test the coding abilities of o1 vs deepseek r1 with the same prompt. The deepseek r1 version is here: https://github.com/philhd/feng-shui
 
 Play the game
 https://geomancer-game.vercel.app/
 
-Here's the LLM interaction:
+Here's the LLM interaction with o1:
 
 Create a NextJS website that generates a random set of 2-dimensional pieces of furniture of varying colors. The pieces of furniture can be dragged and dropped around the screen. On the right-hand side of the screen will be a "feng shui" meter that tracks the visual appeal of the furniture arrangement, and will move up and down as furniture is moved to track the appeal. Higher is more visually appealing.
 ChatGPT
