@@ -1,3 +1,5 @@
+"use client";
+
 import React, { useState, useEffect, useRef, DragEvent } from 'react';
 import type { NextPage } from 'next';
 
@@ -80,22 +82,17 @@ const Home: NextPage = () => {
     y: 0,
   });
 
+  // Generate random furniture once on mount
   useEffect(() => {
     if (containerRef.current) {
       const { clientWidth, clientHeight } = containerRef.current;
-      const initialFurniture = generateRandomFurniture(
-        5,
-        clientWidth,
-        clientHeight
-      );
+      const initialFurniture = generateRandomFurniture(5, clientWidth, clientHeight);
       setFurniture(initialFurniture);
-      setFengShuiScore(
-        calculateFengShui(initialFurniture, clientWidth, clientHeight)
-      );
+      setFengShuiScore(calculateFengShui(initialFurniture, clientWidth, clientHeight));
     }
   }, []);
 
-  // When a piece starts dragging, record which piece and the offset within that piece
+  // When a piece starts dragging
   const handleDragStart = (
     e: React.DragEvent<HTMLDivElement>,
     item: Furniture
@@ -103,14 +100,13 @@ const Home: NextPage = () => {
     setDraggingId(item.id);
 
     // Calculate offset between mouse and the top-left of the furniture
-    // so that when we drop, we can properly position it
     const rect = (e.target as HTMLDivElement).getBoundingClientRect();
     const offsetX = e.clientX - rect.left;
     const offsetY = e.clientY - rect.top;
     setDragOffset({ x: offsetX, y: offsetY });
   };
 
-  // We must prevent default to allow onDrop to fire
+  // Must prevent default to allow onDrop to fire
   const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
   };
@@ -124,7 +120,7 @@ const Home: NextPage = () => {
     const dropX = e.clientX - containerRect.left - dragOffset.x;
     const dropY = e.clientY - containerRect.top - dragOffset.y;
 
-    // Constrain the piece to stay within container
+    // Constrain to stay within the container
     const { clientWidth, clientHeight } = containerRef.current;
     const piece = furniture.find((f) => f.id === draggingId);
     if (!piece) return;
@@ -132,7 +128,7 @@ const Home: NextPage = () => {
     const newX = Math.max(0, Math.min(dropX, clientWidth - piece.width));
     const newY = Math.max(0, Math.min(dropY, clientHeight - piece.height));
 
-    // Update the piece in the furniture array
+    // Update the piece in the state
     const updatedFurniture = furniture.map((f) => {
       if (f.id === draggingId) {
         return { ...f, x: newX, y: newY };
@@ -143,7 +139,7 @@ const Home: NextPage = () => {
     setFurniture(updatedFurniture);
     setDraggingId(null);
 
-    // Recalculate feng shui after the drop
+    // Recalculate feng shui after drop
     const newScore = calculateFengShui(updatedFurniture, clientWidth, clientHeight);
     setFengShuiScore(newScore);
   };
